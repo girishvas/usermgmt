@@ -144,7 +144,7 @@ class Login(APIView):
             result = {"status": False, "message": "Password is Missing"}
             return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
-        url = "http://127.0.0.1:8000/api/token/"
+        url = "http://127.0.0.1:8080/api/token/"
 
         headers = {
             'Content-Type': "application/json",
@@ -186,7 +186,7 @@ class Logout(APIView):
             return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
         print(token)
-        url = "http://127.0.0.1:8000/api/token/refresh/"
+        url = "http://127.0.0.1:8080/api/token/refresh/"
         headers = {
             'Content-Type': "application/json",
             'cache-control': "no-cache",
@@ -214,7 +214,7 @@ class ChangePassword(APIView):
         try:
             current_password = data['current_password']
 
-            url = "http://127.0.0.1:8000/api/token/"
+            url = "http://127.0.0.1:8080/api/token/"
             headers = {
                 'Content-Type': "application/json",
                 'cache-control': "no-cache",
