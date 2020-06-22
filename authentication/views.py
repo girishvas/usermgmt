@@ -73,9 +73,19 @@ class UserRegistration(APIView):
             result = {"status": False, "message": "Password is Missing"}
             return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
+        try:
+            first_name = data['first_name']
+        except:
+            first_name = ""
+
+        try:
+            last_name = data['last_name']
+        except:
+            last_name = ""
+
         userobj = User()
-        userobj.first_name = data['first_name']
-        userobj.last_name = data['last_name']
+        userobj.first_name = first_name
+        userobj.last_name = last_name
         userobj.email = email
         userobj.username = email
         userobj.is_active = False
