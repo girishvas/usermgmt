@@ -2,6 +2,7 @@ from django.shortcuts import render, get_object_or_404
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import permissions, status, generics
+from rest_framework.pagination import LimitOffsetPagination
 
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import authentication_classes, permission_classes
@@ -86,7 +87,7 @@ class UserRegistration(APIView):
 
         activation_email(userobj, activation_link)
 
-        result = {"status": True, "message": "Signed  up Successfully"}
+        result = {"status": True, "message": "Signed  up Successfully. Verification link send to the email"}
         return Response(result, status=status.HTTP_201_CREATED)
 
 
@@ -107,10 +108,12 @@ class ConfirmEmail(APIView):
             userobj["last_name"] = user.last_name
             userobj["email"] = user.email
             userobj["status"] = 'Active'
-            result = {"status": True, "message": "User is activated", "user_details" : userobj}
+            result = {"status": True, "message": "User is activated",
+                      "user_details": userobj}
             return Response(result, status=status.HTTP_200_OK)
         else:
-            result = {"status": False, "message": "Activation link is invalid or already activated!"}
+            result = {
+                "status": False, "message": "Activation link is invalid or already activated!"}
             return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -168,3 +171,99 @@ class Login(APIView):
             print("error in login")
             result = {"status": False, "message": "Login failed"}
             return Response(result, status=status.HTTP_401_UNAUTHORIZED)
+
+
+permission_classes((AllowAny, ))
+class Logout(APIView):
+
+    def post(self, request, *args, **kwargs):
+        data = request.data
+        # print(data)
+        try:
+            token = data['token']
+        except:
+            result = {"status": False, "message": "Token Missing"}
+            return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        print(token)
+        url = "http://127.0.0.1:8000/api/token/refresh/"
+        headers = {
+            'Content-Type': "application/json",
+            'cache-control': "no-cache",
+        }
+        payload = {
+            "refresh": token
+        }
+        resp = requests.request(
+            "POST", url, data=json.dumps(payload), headers=headers)
+        values = json.loads(resp.text)
+        print(resp.text)
+
+        result = {"status": True, "message": "User Logged Out Successfully"}
+        return Response(result, status=status.HTTP_200_OK)
+
+
+class ChangePassword(APIView):
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request, *args, **kwargs):
+        data = request.data
+        print(data)
+
+        try:
+            current_password = data['current_password']
+
+            url = "http://127.0.0.1:8000/api/token/"
+            headers = {
+                'Content-Type': "application/json",
+                'cache-control': "no-cache",
+            }
+            payload = {
+                "username": request.user.username,
+                "password": current_password
+            }
+            resp = requests.request(
+                "POST", url, data=json.dumps(payload), headers=headers)
+            values = json.loads(resp.text)
+            if not resp.status_code == 200:
+                result = {"status": False,
+                          "message": "Current Password is incorrect"}
+                return Response(result, status=status.HTTP_401_UNAUTHORIZED)
+        except:
+            result = {"status": False,
+                      "message": "Current Password is Missing"}
+            return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            new_password = data['new_password']
+        except:
+            result = {"status": False, "message": "New Password is Missing"}
+            return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        user = User.objects.get(id=request.user.id)
+        user.set_password(new_password)
+        user.save()
+
+        result = {"status": True, "message": "Password changed successfully"}
+        return Response(result, status=status.HTTP_200_OK)
+
+
+class UserList(generics.ListAPIView):
+
+    permission_classes = (IsAuthenticated,)
+    queryset = User.objects.exclude(is_superuser=True).order_by('-id')
+    serializer_class = UserDisplaySerializer
+    pagination_class = LimitOffsetPagination
+
+    def post(self, request, *args, **kwargs):
+        data = request.data
+        try:
+            user_id = data['user_id']
+        except:
+            result = {"status": False, "message": "User ID is missing"}
+            return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        user_det = get_object_or_404(User.objects.all(), id=user_id)
+        serializer = UserDisplaySerializer(user_det, many=False)
+        return Response({"user_details": serializer.data})

@@ -6,6 +6,7 @@ urlpatterns = [
 	path('registration/', UserRegistration.as_view()),
 	path('confirm-email/<slug:uidb64>/<slug:token>/', ConfirmEmail.as_view(), name='confirm_email'),
 	path('login/', Login.as_view(), name='login'),
-    # path('logout', Logout.as_view(), name='logout'),
-    # path('change-password', ChangePassword.as_view(), name='change-password'),
+    path('logout/', Logout.as_view(), name='logout'),
+    path('change-password/', ChangePassword.as_view(), name='change-password'),
+    path('user-list/', UserList.as_view(), name='user-list'),
 ]
