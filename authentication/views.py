@@ -24,6 +24,9 @@ from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_text
 from .applayer import *
 
+from django.contrib.auth import login as django_login, logout as django_logout, authenticate, get_user_model
+import requests
+
 
 def activation_email(user, link):
     subject = "Email Verification"
@@ -99,9 +102,69 @@ class ConfirmEmail(APIView):
         if user is not None and account_activation_token.check_token(user, token):
             user.is_active = True
             user.save()
-            result = {"status": True, "message": "User is activated"}
+            userobj = {}
+            userobj["first_name"] = user.first_name
+            userobj["last_name"] = user.last_name
+            userobj["email"] = user.email
+            userobj["status"] = 'Active'
+            result = {"status": True, "message": "User is activated", "user_details" : userobj}
             return Response(result, status=status.HTTP_200_OK)
         else:
-            logging.critical('Activation link is invalid!')
-            result = {"status": False, "message": "Activation link is invalid!"}
+            result = {"status": False, "message": "Activation link is invalid or already activated!"}
             return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+
+@permission_classes((AllowAny, ))
+class Login(APIView):
+
+    def post(self, request, *args, **kwargs):
+        data = request.data
+        # print(data)
+        try:
+            email = data['email']
+            profile = User.objects.filter(email=email)
+            if profile.count() == 0:
+                result = {"status": False,
+                          "message": "Email is not registered with us."}
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+            elif profile[0].is_active == False:
+                result = {"status": False,
+                          "message": "Account is not Active, Please activate your account, check your email for the link."}
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+        except:
+            result = {"status": False, "message": "Email is Missing"}
+            return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            password = data['password']
+        except:
+            result = {"status": False, "message": "Password is Missing"}
+            return Response(result, status=status.HTTP_400_BAD_REQUEST)
+
+        url = "http://127.0.0.1:8000/api/token/"
+
+        headers = {
+            'Content-Type': "application/json",
+            'cache-control': "no-cache",
+        }
+
+        payload = {
+            "username": email,
+            "password": password
+        }
+
+        resp = requests.request(
+            "POST", url, data=json.dumps(payload), headers=headers)
+        values = json.loads(resp.text)
+        if resp.status_code == 200:
+            values['first_name'] = profile[0].first_name
+            values['last_name'] = profile[0].last_name
+            values['email'] = profile[0].email
+
+            result = {"status": True,
+                      "message": "User Logged in successfully", "result": values}
+            return Response(result, status=status.HTTP_200_OK)
+        else:
+            print("error in login")
+            result = {"status": False, "message": "Login failed"}
+            return Response(result, status=status.HTTP_401_UNAUTHORIZED)
